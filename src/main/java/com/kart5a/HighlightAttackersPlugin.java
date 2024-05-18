@@ -19,7 +19,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.HashSet;
-import java.util.Objects;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,7 +42,9 @@ public class HighlightAttackersPlugin extends Plugin {
 	private HighlightAttackersOverlay overlay;
 
 	@Getter
-	private Set<NPC> attackers = new HashSet<>();
+	private Set<NPC> focusingNpcs = new HashSet<>();
+	@Getter
+	private Set<NPC> attackingNpcs = new HashSet<>();
 	private Set<Integer> ignoredNpcIds = new HashSet<>();
 	private Set<String> ignoredNpcNames = new HashSet<>();
 
@@ -57,7 +59,8 @@ public class HighlightAttackersPlugin extends Plugin {
 	@Override
 	protected void shutDown() throws Exception {
 		overlayManager.remove(overlay);
-		attackers.clear();
+		focusingNpcs.clear();
+		attackingNpcs.clear();
 		ignoredNpcIds.clear();
 		ignoredNpcNames.clear();
 		log.info("Highlight Attackers stopped!");
@@ -71,7 +74,8 @@ public class HighlightAttackersPlugin extends Plugin {
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
 		if (event.getGameState() == GameState.LOGGED_IN) {
-			attackers.clear();
+			focusingNpcs.clear();
+			attackingNpcs.clear();
 			parseIgnoredNpcIds();
 			parseIgnoredNpcNames();
 		}
@@ -79,7 +83,7 @@ public class HighlightAttackersPlugin extends Plugin {
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		updateAttackers();
+		updateNpcs();
 	}
 
 	@Subscribe
@@ -95,40 +99,50 @@ public class HighlightAttackersPlugin extends Plugin {
 		}
 	}
 
-	private void updateAttackers() {
-		attackers.clear();
+	private void updateNpcs() {
+		focusingNpcs.clear();
+		attackingNpcs.clear();
 		Player localPlayer = client.getLocalPlayer();
 		if (localPlayer == null) {
 			return;
 		}
 
 		for (NPC npc : client.getNpcs()) {
-			if (npc.getInteracting() == localPlayer &&
-					!ignoredNpcIds.contains(npc.getId()) &&
-					!ignoredNpcNames.contains(Objects.requireNonNull(npc.getName()).toLowerCase())) {
-				attackers.add(npc);
+			if (!ignoredNpcIds.contains(npc.getId()) && !ignoredNpcNames.contains(npc.getName().toLowerCase(Locale.ROOT))) {
+				if (npc.getInteracting() == localPlayer) {
+					focusingNpcs.add(npc);
+					// Assume NPC is damaging the player if it is interacting with the player and has an active animation
+					if (npc.isInteracting() && npc.getAnimation() != -1) { // Add more conditions if needed
+						attackingNpcs.add(npc);
+					}
+				}
 			}
 		}
 	}
 
 	private void parseIgnoredNpcIds() {
-		try {
-			ignoredNpcIds = Stream.of(config.ignoreNpcIds().split(","))
-					.map(String::trim)
-					.filter(s -> !s.isEmpty())
-					.map(Integer::parseInt)
-					.collect(Collectors.toSet());
-		} catch (NumberFormatException e) {
-			log.warn("Invalid NPC ID format in ignore list", e);
-			ignoredNpcIds.clear();  // Clear the set if there's a parsing error
-		}
+		ignoredNpcIds = Stream.of(config.ignoreNpcIds().split(","))
+				.map(String::trim)
+				.filter(s -> !s.isEmpty())
+				.map(this::safeParseInt)
+				.filter(i -> i != null)
+				.collect(Collectors.toSet());
 	}
 
 	private void parseIgnoredNpcNames() {
 		ignoredNpcNames = Stream.of(config.ignoreNpcNames().split(","))
 				.map(String::trim)
 				.filter(s -> !s.isEmpty())
-				.map(String::toLowerCase)
+				.map(name -> name.toLowerCase(Locale.ROOT))
 				.collect(Collectors.toSet());
+	}
+
+	private Integer safeParseInt(String str) {
+		try {
+			return Integer.parseInt(str);
+		} catch (NumberFormatException e) {
+			log.warn("Invalid NPC ID format in ignore list: " + str);
+			return null;
+		}
 	}
 }

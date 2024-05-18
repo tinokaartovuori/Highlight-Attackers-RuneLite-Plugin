@@ -29,8 +29,12 @@ public class HighlightAttackersOverlay extends Overlay {
 
     @Override
     public Dimension render(Graphics2D graphics) {
-        for (NPC npc : plugin.getAttackers()) {
-            outlineRenderer.drawOutline(npc, config.borderWidth(), config.borderColor(), config.borderFeather());
+        for (NPC npc : plugin.getFocusingNpcs()) {
+            if (plugin.getAttackingNpcs().contains(npc)) {
+                outlineRenderer.drawOutline(npc, config.borderWidth(), config.attackingBorderColor(), config.borderFeather());
+            } else {
+                outlineRenderer.drawOutline(npc, config.borderWidth(), config.focusingBorderColor(), config.borderFeather());
+            }
         }
         return null;
     }
