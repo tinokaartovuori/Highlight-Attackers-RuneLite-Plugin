@@ -88,7 +88,7 @@ public class HighlightAttackersPlugin extends Plugin {
 
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
-		if (event.getGroup().equals("highlightattackers")) {
+		if (event.getGroup().equals("HighlightAttackers")) {
 			if (event.getKey().equals("ignoreNpcIds")) {
 				parseIgnoredNpcIds();
 				log.info("Updated ignored NPC IDs: " + ignoredNpcIds);

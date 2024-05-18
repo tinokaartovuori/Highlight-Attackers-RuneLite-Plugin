@@ -7,7 +7,7 @@ import net.runelite.client.config.ConfigItem;
 
 import java.awt.Color;
 
-@ConfigGroup("highlightattackers")
+@ConfigGroup("HighlightAttackers")
 public interface HighlightAttackersConfig extends Config {
 	@ConfigItem(
 			keyName = "ignoreNpcIds",
